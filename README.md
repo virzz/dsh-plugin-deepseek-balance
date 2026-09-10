@@ -35,35 +35,115 @@ Design notes:
 - **Two cadences.** The child collects every 60s; the row re-reads the host's cached
   snapshot every 15s, so no polling happens from the browser.
 
-## Install
+## Install into DSH
 
-Published to npmjs on every release:
+A DSH plugin is a package plus a row. The package has to be resolvable **from the profile
+that mounts it**, and the row has to name it — the browser half only reaches the page as part
+of that profile's client roster, which is composed at boot.
+
+### 1. Add the package to the profile
 
 ```sh
-npm install @virzz/dsh-plugin-deepseek-balance
+dsh plugin --profile web add @virzz/dsh-plugin-deepseek-balance
 ```
 
-Also mirrored to the GitHub npm registry:
+`dsh plugin` forwards everything after `--profile <name>` to pnpm **in the profile
+directory**, so this is an ordinary `pnpm add` in `$DSH_HOME/profiles/web` — which is exactly
+the `node_modules` tree the loader resolves row names from.
+
+To leave the shipped `web` profile untouched, derive your own from it and install there:
+
+```sh
+dsh --profile balance --from-default-profile web
+dsh plugin --profile balance add @virzz/dsh-plugin-deepseek-balance
+```
+
+The package is published to npmjs and to GitHub Packages. The command above resolves from
+npmjs by default; to install from GitHub Packages, point the scope at it first:
 
 ```sh
 npm config set @virzz:registry https://npm.pkg.github.com
-npm install @virzz/dsh-plugin-deepseek-balance
 ```
 
-To mount it in a DSH profile, the package must also be resolvable from that profile and named
-by a row. With pnpm available that is `dsh plugin --profile web add <spec>`; without pnpm a
-link plus one patch row is equivalent:
+<details>
+<summary>Without pnpm</summary>
+
+`dsh plugin add` does two things; both can be done by hand — put the package where the
+profile can resolve it, and name it in the profile's own patch layer.
 
 ```sh
-ln -s /path/to/dsh-plugin-deepseek-balance ~/.dsh/profiles/web/node_modules/@virzz/dsh-plugin-deepseek-balance
+mkdir -p ~/.dsh/profiles/web/node_modules/@virzz
+ln -s /path/to/dsh-plugin-deepseek-balance \
+      ~/.dsh/profiles/web/node_modules/@virzz/dsh-plugin-deepseek-balance
 ```
 
 ```yaml
-# ~/.dsh/profiles/web/cordis.patch.yml
+# ~/.dsh/profiles/web/cordis.patch.yml — applied after every bundle layer
 - insert:
     - id: deepseek-balance
       name: '@virzz/dsh-plugin-deepseek-balance'
 ```
+</details>
+
+### 2. Provide the DeepSeek API key
+
+The host half re-resolves the credential reference `DEEPSEEK_API_KEY` on every collector
+start. Either of these works:
+
+- **Settings → Models**, on the DeepSeek provider card — stored in `$DSH_HOME/.credentials.yaml`; or
+- export it where DSH boots: `export DEEPSEEK_API_KEY=sk-...`
+
+Nothing else needs it. The key never reaches the browser and never appears on a command
+line: the collector receives it in its environment, and the read route exposes balance
+figures only.
+
+### 3. Boot
+
+```sh
+dsh --profile web        # or: dsh web
+```
+
+The row appears in the sidebar footer, directly above **Settings**:
+
+```
+◆  Cordis Plugin                    0 running
+▤  DeepSeek 余额              $1058.69 · ¥-0.01
+⚙  设置
+```
+
+Hover it for the per-currency breakdown (total, granted, topped up) and the collection time;
+click it to re-read the host's cache immediately.
+
+### 4. Verify without opening the UI
+
+```sh
+dsh --profile web --dump-config | grep -A2 deepseek-balance   # is the row composed?
+curl -s http://127.0.0.1:8021/deepseek-balance                # does the host half answer?
+```
+
+The launcher prints its URL on boot; adjust the port if yours differs. A healthy answer:
+
+```json
+{"ok":true,"available":true,"balances":[{"currency":"USD","total":"1058.69","granted":"0.00","toppedUp":"1058.69"}],"fetchedAt":1789030816379}
+```
+
+### Troubleshooting
+
+| Symptom | What to check |
+| --- | --- |
+| Row reads `未配置密钥` | `DEEPSEEK_API_KEY` is not resolvable — set it in Settings → Models, or in the environment that boots DSH |
+| Row reads `不可用` | Hover it: the tooltip carries the exact cause (`http-401`, `request-failed`, `poller-exited`, …) |
+| Row reads `不可用`, tooltip says `subprocess 服务不可用` | The row activated before the subprocess service. It declares that as a hard dependency *and* retries every 5s, so it clears itself |
+| No row at all | The client roster is composed at boot — restart the profile. `--dump-config` above shows whether the row is composed at all |
+| Row only visible when the sidebar is expanded | Expected: in the 56px rail it collapses to a 36px circle showing the primary currency symbol |
+
+### Uninstall
+
+```sh
+dsh plugin --profile web remove @virzz/dsh-plugin-deepseek-balance
+```
+
+Or delete the row from `cordis.patch.yml` plus the `node_modules` entry, then restart.
 
 `dsh.client` in `package.json` puts `lib/client.js` into the browser roster that
 `@deepseek-ai/dsh-client-modules` composes into `window.__DSH_BOOT__`. The module id inside
