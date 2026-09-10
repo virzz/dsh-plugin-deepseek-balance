@@ -1,0 +1,39 @@
+{
+  "name": "dsh-plugin-deepseek-balance",
+  "version": "1.0.0",
+  "description": "DeepSeek official account balance as a sidebar status row, collected by one resident node process",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "inject": []
+    }
+  },
+  "files": [
+    "lib/index.js",
+    "lib/client.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "dsh",
+    "deepseek",
+    "cordis",
+    "plugin",
+    "balance"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/virzz/dsh-plugin-deepseek-balance.git"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}
