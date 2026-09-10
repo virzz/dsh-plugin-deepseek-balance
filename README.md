@@ -92,12 +92,33 @@ via **Run workflow**. It has three jobs: a `check` gate, then one publish job pe
 
 | Registry | Credential | Notes |
 | --- | --- | --- |
-| npmjs | repository secret `NPM_TOKEN` | an npm access token with publish rights for the `@virzz` scope; `--access public` because a scoped package is private by default |
+| npmjs | **OIDC trusted publishing** — no token at all | the job carries `id-token: write` and the npm CLI exchanges that for a short-lived publish credential; provenance is generated automatically because the repo is public |
 | GitHub Packages | the workflow's own `GITHUB_TOKEN` | needs `packages: write`; nothing to configure |
 
 They are separate jobs on purpose: the two use different credentials, and one being
 unconfigured never blocks the other. `publishConfig.registry` is deliberately **not** set —
 it would override each job's `--registry`, and the `check` job fails if it comes back.
+
+### Trusted publishing setup
+
+Trusted publishing needs npm CLI >= 11.5.1 on Node >= 22.14, so the jobs run Node 24 and the
+npmjs job upgrades npm before publishing. On npmjs.com, at
+**Packages → @virzz/dsh-plugin-deepseek-balance → Settings → Trusted publishing**, add a
+GitHub Actions publisher with these exact, case-sensitive values:
+
+| Field | Value |
+| --- | --- |
+| Organization or user | `virzz` |
+| Repository | `dsh-plugin-deepseek-balance` |
+| Workflow filename | `publish.yml` |
+| Allowed actions | `npm publish` |
+
+**First publish is the exception.** A package that does not exist yet has no settings page to
+attach a trusted publisher to, so version `1.0.0` has to be published once the ordinary way —
+either `npm login && npm publish --access public` from a checkout, or run the workflow with a
+temporary `NPM_TOKEN` secret. Configure the trusted publisher immediately afterwards; every
+later release then publishes with no token, and you can set the package to
+*Require two-factor authentication and disallow tokens*.
 
 Bump `version` before releasing: both registries reject a duplicate version.
 

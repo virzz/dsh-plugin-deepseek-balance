@@ -8,22 +8,29 @@ on:
       - 'v*'
   workflow_dispatch:
 
-# Two registries, two credentials. GitHub Packages authenticates with the workflow's own
-# GITHUB_TOKEN, npmjs needs a repository secret named NPM_TOKEN. They are separate jobs so
-# one registry being unavailable or unconfigured never blocks the other.
+# Two registries, two very different credentials.
+#
+#   npmjs          — OIDC trusted publishing: no npm token exists anywhere. The job only
+#                    needs `id-token: write`, and npm CLI exchanges that token for a
+#                    short-lived publish credential. Provenance is generated automatically.
+#   GitHub Packages — authenticates with the workflow's own GITHUB_TOKEN.
+#
+# They are separate jobs so one registry being unconfigured never blocks the other.
 jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: '24'
+          package-manager-cache: false
 
       # Dependency-free gate: both halves must parse, the client module id must equal the
-      # package name (@deepseek-ai/dsh-client-modules keys the browser roster by it), and the
-      # name must stay scoped — both registries reject an unscoped publish.
+      # package name (@deepseek-ai/dsh-client-modules keys the browser roster by it), the
+      # name must stay scoped, and no publishConfig.registry may shadow the per-job
+      # --registry flag.
       - name: Check the package
         run: |
           node --check lib/index.js
@@ -40,8 +47,12 @@ jobs:
               console.error("both registries require a scoped name");
               process.exit(1);
             }
-            if (pkg.publishConfig) {
-              console.error("publishConfig is set and would override the per-registry --registry flag; remove it");
+            if (pkg.publishConfig?.registry) {
+              console.error("publishConfig.registry would override the per-job --registry flag; remove it");
+              process.exit(1);
+            }
+            if (!String(pkg.repository?.url ?? "").includes("github.com/virzz/dsh-plugin-deepseek-balance")) {
+              console.error("repository.url must match the GitHub repository, or trusted publishing refuses the publish");
               process.exit(1);
             }
             console.log(`${pkg.name}@${pkg.version} is ready to publish`);
@@ -54,13 +65,14 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: '24'
           registry-url: https://npm.pkg.github.com
           scope: '@virzz'
+          package-manager-cache: false
 
       - name: Publish to GitHub Packages
         run: npm publish --registry=https://npm.pkg.github.com
@@ -72,17 +84,25 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: '24'
           registry-url: https://registry.npmjs.org
+          package-manager-cache: false
 
-      # NPM_TOKEN must be an npm access token with publish rights for the @virzz scope.
-      # A scoped package is private by default, so --access public is required.
+      # Trusted publishing needs npm CLI >= 11.5.1; the runner's bundled npm is not pinned
+      # to that, so take the newest rather than betting on the image.
+      - name: Ensure npm supports trusted publishing
+        run: |
+          npm install -g npm@latest
+          npm --version
+
+      # No NODE_AUTH_TOKEN: the npm CLI detects the OIDC environment and exchanges the
+      # id-token for a short-lived publish credential. A scoped package is private by
+      # default, so --access public is still required.
       - name: Publish to npmjs
         run: npm publish --registry=https://registry.npmjs.org --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
