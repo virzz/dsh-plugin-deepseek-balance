@@ -1,6 +1,13 @@
-# dsh-plugin-deepseek-balance
+# @virzz/dsh-plugin-deepseek-balance
 
-A DSH plugin that shows the DeepSeek official account balance as a frame-wide status pill.
+A [DSH](https://github.com/deepseek-ai/deepseek-harness) plugin that shows the DeepSeek
+official account balance as a row in the sidebar footer, above **Settings**.
+
+```
+◆  Cordis Plugin                    0 running
+▤  DeepSeek 余额              $1058.69 · ¥-0.01
+⚙  设置
+```
 
 ## Shape
 
@@ -13,7 +20,7 @@ The child polls `https://api.deepseek.com/user/balance` with Node's own global `
 prints one JSON line per attempt:
 
 ```json
-{"ok":true,"available":true,"balances":[{"currency":"USD","total":"1058.74","granted":"0.00","toppedUp":"1058.74"}],"fetchedAt":1789030516269}
+{"ok":true,"available":true,"balances":[{"currency":"USD","total":"1058.69","granted":"0.00","toppedUp":"1058.69"}],"fetchedAt":1789030816379}
 ```
 
 Design notes:
@@ -27,6 +34,34 @@ Design notes:
   the browser. The read route returns only balance figures.
 - **Two cadences.** The child collects every 60s; the row re-reads the host's cached
   snapshot every 15s, so no polling happens from the browser.
+
+## Install
+
+The package is published to the GitHub npm registry on every release:
+
+```sh
+npm config set @virzz:registry https://npm.pkg.github.com
+npm install @virzz/dsh-plugin-deepseek-balance
+```
+
+To mount it in a DSH profile, the package must also be resolvable from that profile and named
+by a row. With pnpm available that is `dsh plugin --profile web add <spec>`; without pnpm a
+link plus one patch row is equivalent:
+
+```sh
+ln -s /path/to/dsh-plugin-deepseek-balance ~/.dsh/profiles/web/node_modules/@virzz/dsh-plugin-deepseek-balance
+```
+
+```yaml
+# ~/.dsh/profiles/web/cordis.patch.yml
+- insert:
+    - id: deepseek-balance
+      name: '@virzz/dsh-plugin-deepseek-balance'
+```
+
+`dsh.client` in `package.json` puts `lib/client.js` into the browser roster that
+`@deepseek-ai/dsh-client-modules` composes into `window.__DSH_BOOT__`. The module id inside
+`lib/client.js` must equal the package name — the workflow checks that before publishing.
 
 ## Why the client half overrides one slot anchor
 
@@ -44,24 +79,10 @@ The row itself reuses the shipped footer row's metrics (42px, 12px radius, right
 status text in `--dsw-alias-label-tertiary`) so it reads as part of the sidebar foot; in the
 56px rail it collapses to a 36px circle showing the primary currency symbol.
 
-## Installing into a profile
+## Publish
 
-The package must be resolvable from the profile that mounts it. With pnpm available that is
-`dsh plugin --profile web add <spec>`; without pnpm a link plus one patch row is equivalent:
-
-```sh
-ln -s /path/to/dsh-plugin-deepseek-balance ~/.dsh/profiles/web/node_modules/dsh-plugin-deepseek-balance
-```
-
-```yaml
-# ~/.dsh/profiles/web/cordis.patch.yml
-- insert:
-    - id: deepseek-balance
-      name: 'dsh-plugin-deepseek-balance'
-```
-
-`dsh.client` in `package.json` puts `lib/client.js` into the browser roster that
-`@deepseek-ai/dsh-client-modules` composes into `window.__DSH_BOOT__`.
+`.github/workflows/publish.yml` publishes to GitHub Packages on a published release (or by
+hand via **Run workflow**). Bump `version` first — the registry rejects a duplicate.
 
 ## Test
 
