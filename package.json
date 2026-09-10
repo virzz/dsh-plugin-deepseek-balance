@@ -1,7 +1,7 @@
 {
-  "name": "dsh-plugin-deepseek-balance",
+  "name": "@virzz/dsh-plugin-deepseek-balance",
   "version": "1.0.0",
-  "description": "DeepSeek official account balance as a sidebar status row, collected by one resident node process",
+  "description": "DeepSeek official account balance as a DSH sidebar status row, collected by one resident node process",
   "type": "module",
   "main": "lib/index.js",
   "exports": {
@@ -31,6 +31,9 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/virzz/dsh-plugin-deepseek-balance.git"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
   },
   "engines": {
     "node": ">=18"
