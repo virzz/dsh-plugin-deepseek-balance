@@ -37,7 +37,13 @@ Design notes:
 
 ## Install
 
-The package is published to the GitHub npm registry on every release:
+Published to npmjs on every release:
+
+```sh
+npm install @virzz/dsh-plugin-deepseek-balance
+```
+
+Also mirrored to the GitHub npm registry:
 
 ```sh
 npm config set @virzz:registry https://npm.pkg.github.com
@@ -81,8 +87,19 @@ status text in `--dsw-alias-label-tertiary`) so it reads as part of the sidebar 
 
 ## Publish
 
-`.github/workflows/publish.yml` publishes to GitHub Packages on a published release (or by
-hand via **Run workflow**). Bump `version` first — the registry rejects a duplicate.
+`.github/workflows/publish.yml` runs on a published release, on a `v*` tag push, or by hand
+via **Run workflow**. It has three jobs: a `check` gate, then one publish job per registry.
+
+| Registry | Credential | Notes |
+| --- | --- | --- |
+| npmjs | repository secret `NPM_TOKEN` | an npm access token with publish rights for the `@virzz` scope; `--access public` because a scoped package is private by default |
+| GitHub Packages | the workflow's own `GITHUB_TOKEN` | needs `packages: write`; nothing to configure |
+
+They are separate jobs on purpose: the two use different credentials, and one being
+unconfigured never blocks the other. `publishConfig.registry` is deliberately **not** set —
+it would override each job's `--registry`, and the `check` job fails if it comes back.
+
+Bump `version` before releasing: both registries reject a duplicate version.
 
 ## Test
 
