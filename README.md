@@ -5,7 +5,7 @@ official account balance as a row in the sidebar footer, above **Settings**.
 
 ```
 ◆  Cordis Plugin                    0 running
-▤  DeepSeek 余额              $1058.69 · ¥-0.01
+▤  DeepSeek 余额                    $1058.69
 ⚙  设置
 ```
 
@@ -34,6 +34,10 @@ Design notes:
   the browser. The read route returns only balance figures.
 - **Two cadences.** The child collects every 60s; the row re-reads the host's cached
   snapshot every 15s, so no polling happens from the browser.
+- **Positive balances only.** A currency whose total is zero or negative says nothing useful
+  in a balance read-out, so it is left out of both the row and its tooltip. The tooltip
+  reports how many entries were hidden, and the row reads `0` when nothing is positive. The
+  host still returns every currency it receives — the rule is presentation, not data.
 
 ## Install into DSH
 
@@ -107,7 +111,7 @@ The row appears in the sidebar footer, directly above **Settings**:
 
 ```
 ◆  Cordis Plugin                    0 running
-▤  DeepSeek 余额              $1058.69 · ¥-0.01
+▤  DeepSeek 余额                    $1058.69
 ⚙  设置
 ```
 
