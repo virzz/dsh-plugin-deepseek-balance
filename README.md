@@ -1,11 +1,12 @@
 # @virzz/dsh-plugin-deepseek-balance
 
 A [DSH](https://github.com/deepseek-ai/deepseek-harness) plugin that shows the DeepSeek
-official account balance as a row in the sidebar footer, above **Settings**.
+official account balance — and the current peak/off-peak tariff — as a row in the sidebar
+footer, above **Settings**.
 
 ```
 ◆  Cordis Plugin                    0 running
-▤  DeepSeek 余额                    $1058.69
+▤  DeepSeek 余额  空闲              $1031.31
 ⚙  设置
 ```
 
@@ -38,6 +39,30 @@ Design notes:
   in a balance read-out, so it is left out of both the row and its tooltip. The tooltip
   reports how many entries were hidden, and the row reads `0` when nothing is positive. The
   host still returns every currency it receives — the rule is presentation, not data.
+- **The tariff is live.** A chip next to the label shows which DeepSeek price window is in
+  force right now, and the tooltip counts down to the next switch. It is derived from the
+  clock on every tick, not from the balance fetch, so it stays right even when the API is
+  unreachable.
+
+### Peak and off-peak windows
+
+Off-peak costs half of peak. In Beijing time (UTC+8), peak is **Mon–Fri 09:00–12:00 and
+14:00–18:00**; everything else is off-peak. DeepSeek's off-peak discount exists so that batch
+work can be shifted out of the busy hours — the row's tooltip says as much in one line:
+*空闲时段随便蹬* vs *高峰时段建议节约蹬*.
+
+```
+▤  DeepSeek 余额  空闲   $1031.31     ← Mon–Fri outside the windows, weekends, nights
+▤  DeepSeek 余额  高峰   $1031.31     ← Mon–Fri 09:00–12:00, 14:00–18:00
+```
+
+The chip carries the window name only; the price ratio and the countdown to the next switch
+live in the tooltip.
+
+The boundaries are half-open — 12:00 and 18:00 are already off-peak — and the calculation
+applies a fixed +8h shift to epoch milliseconds rather than reading the browser's local time,
+so it is correct wherever the page is opened. `test/period.test.mjs` pins the boundaries,
+both weekend days, and the 63-hour Friday-evening-to-Monday-morning gap.
 
 ## Install into DSH
 
@@ -111,7 +136,7 @@ The row appears in the sidebar footer, directly above **Settings**:
 
 ```
 ◆  Cordis Plugin                    0 running
-▤  DeepSeek 余额                    $1058.69
+▤  DeepSeek 余额  空闲              $1058.69
 ⚙  设置
 ```
 
@@ -214,4 +239,12 @@ lines, snapshot, and route JSON without a DSH process:
 
 ```sh
 DEEPSEEK_API_KEY=... node test/host-smoke.mjs
+```
+
+`test/period.test.mjs` runs without any credential and is part of the publish workflow's
+`check` job. It lifts the tariff helpers out of `lib/client.js` and asserts them, so the
+boundaries cannot drift from the shipped code:
+
+```sh
+node test/period.test.mjs
 ```

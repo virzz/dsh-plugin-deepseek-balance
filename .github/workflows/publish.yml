@@ -35,6 +35,7 @@ jobs:
         run: |
           node --check lib/index.js
           node --check lib/client.js
+          node test/period.test.mjs
           node -e '
             const pkg = require("./package.json");
             const src = require("node:fs").readFileSync("lib/client.js", "utf8");
